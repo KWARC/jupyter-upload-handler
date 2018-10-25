@@ -21,6 +21,8 @@ class JupyterUploadHandler(IPythonHandler):
     @web.authenticated
     def get(self, *args, **kwwargs):
         # get the requested notebook
+        prefix = os.getenv('UPLOAD_REDIRECT_PREFIX','')
+
         URL = self.get_query_argument("url")
         notebook = requests.get(URL).text
         a = urlparse(URL)
@@ -43,7 +45,7 @@ class JupyterUploadHandler(IPythonHandler):
             url = ENDING[extension[1:]]
         except KeyError:
             url = "edit"
-        self.redirect("/%s/%s%s" % (url, filename, extension))
+        self.redirect("%s/%s/%s%s" % (prefix, url, filename, extension))
 
 
 def _jupyter_server_extension_paths():
