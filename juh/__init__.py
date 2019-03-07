@@ -2,12 +2,14 @@ import os
 import io
 import requests
 import urllib
+import json
 
 from tornado import web
 from notebook.utils import url_path_join
 from notebook.base.handlers import IPythonHandler
 from notebook.notebookapp import NotebookApp
 from urllib.parse import urlparse
+from base64 import b64decode
 
 base_path = os.path.dirname(__file__)
 template_path = os.path.join(base_path, 'templates')
@@ -23,22 +25,30 @@ class JupyterUploadHandler(IPythonHandler):
         # get the requested notebook
         prefix = os.getenv('UPLOAD_REDIRECT_PREFIX','')
 
-        URL = self.get_query_argument("url")
-        notebook = requests.get(URL).text
-        a = urlparse(URL)
-        base = os.path.basename(a.path)
-        baseFilename, extension = os.path.splitext(base)
+        URL = self.get_query_argument('url')
+        if URL.startswith('data'):
+            base_filename = 'Untitled'
+            header, encoded = URL.split(',', 1)
+            _, extension = header.split('/', 1)
+            extension = ".%s" % (extension[:-1])
+            data = b64decode(encoded).decode('utf-8')
+        
+        else:
+            data = requests.get(URL).text
+            a = urlparse(URL)
+            b = os.path.basename(a.path)
+            base_filename, extension = os.path.splitext(b)
 
-        # if the file alredy exists slap some numbers on the name
+        # if the file alredy exists add some numbers
         fileNumber = 1
-        filename = base
-        while os.path.isfile(filename+extension): 
-            filename = baseFilename + "("+str(fileNumber)+")"
-            fileNumber = fileNumber + 1
+        filename = base_filename
+        while os.path.isfile("%s%s" % (filename,extension)):
+            filename = base_filename + "("+str(fileNumber)+")"
+            fileNumber += 1
 
         # save the notebook
-        with io.open(filename+extension, 'w', encoding='utf-8') as f:
-            f.write(notebook)
+        with io.open("%s%s" % (filename,extension), 'w', encoding='utf-8') as f:
+            f.write(data)
 
         # and open it in the browser
         try:
